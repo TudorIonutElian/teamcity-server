@@ -1,0 +1,94 @@
+---
+version: "2"
+services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $HOME/dockervolumes/nginx/certs:/etc/nginx/certs:ro
+      - $HOME/dockervolumes/nginx/vhost:/etc/nginx/vhost.d
+      - /usr/share/nginx/html
+    environment:
+      - DEFAULT_HOST=teamcity.learndevtech.com
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion:v1.12
+    container_name: letsencrypt
+    restart: always
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    volumes:
+      - $HOME/dockervolumes/nginx/certs:/etc/nginx/certs:rw
+    volumes_from:
+      - nginx-proxy
+  teamcity:
+    image: jetbrains/teamcity-server:2024.07.3
+    container_name: jetbrains-teamcity
+    volumes:
+      - ./dockervolumes/teamcity/data:/data/teamcity_server/datadir
+      - ./dockervolumes/teamcity/logs:/opt/teamcity/logs
+    environment:
+      - SERVER_URL=teamcity.learndevtech.com
+      - VIRTUAL_HOST=teamcity.learndevtech.com
+      - LETSENCRYPT_HOST=teamcity.learndevtech.com
+      - LETSENCRYPT_EMAIL=your.email@learndevtech.com
+    depends_on:
+      - mysql
+  mysql:
+    image: mysql:5.7
+    volumes:
+      - ./dockervolumes/mysql/data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=yourTinyPassword*15
+      - MYSQL_DATABASE=teamcity
+      - MYSQL_USER=teamcityUserLooser
+      - MYSQL_PASSWORD=yourTinyPassword*15
+    expose:
+      - 3306
+    ports:
+      - 3306:3306
+  teamcity_agent1:
+    image: jetbrains/teamcity-agent:2024.07.3
+    container_name: teamcity-agent-1
+    user: root
+    volumes:
+      - $HOME/agent1/conf:/data/teamcity_agent/conf
+      - $HOME/agent1/volumes:/var/lib/docker
+    environment:
+      - SERVER_URL=https://teamcity.learndevtech.com
+      - DOCKER_IN_DOCKER=start
+    privileged: true
+    depends_on:
+      - teamcity
+  teamcity_agent2:
+    image: jetbrains/teamcity-agent:2024.07.3
+    container_name: teamcity-agent-2
+    user: root
+    volumes:
+      - $HOME/agent2/conf:/data/teamcity_agent/conf
+      - $HOME/agent2/volumes:/var/lib/docker
+    environment:
+      - SERVER_URL=https://teamcity.learndevtech.com
+      - DOCKER_IN_DOCKER=start
+    privileged: true
+    depends_on:
+      - teamcity
+  teamcity_agent3:
+    image: jetbrains/teamcity-agent:2024.07.3
+    container_name: teamcity-agent-3
+    user: root
+    volumes:
+      - $HOME/agent3/conf:/data/teamcity_agent/conf
+      - $HOME/agent3/volumes:/var/lib/docker
+    environment:
+      - SERVER_URL=https://teamcity.learndevtech.com
+      - DOCKER_IN_DOCKER=start
+    privileged: true
+    depends_on:
+      - teamcity
+volumes:
+  dockervolumes: null
